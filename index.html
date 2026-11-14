@@ -253,6 +253,34 @@
             padding: 8px 11px;
         }
 
+        .operation-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: -3px 0 14px;
+        }
+
+        .operation-tools .btn {
+            font-size: 12px;
+            padding: 9px 12px;
+        }
+
+        .operation-result {
+            margin: 10px 0 0;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #f7f9fc;
+            color: #46536b;
+            font-size: 12px;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .operation-result strong {
+            color: var(--ink);
+        }
+
         .canvas {
             height: 420px;
             overflow: auto;
@@ -543,8 +571,8 @@
 
                 <p>
                     Explore how AVL Trees and B-Trees organize data.
-                    Insert values, watch the structure update, and follow
-                    the explanation of each operation.
+                    Insert, search, and delete values, explore traversals,
+                    compare tree properties, and follow each operation step by step.
                 </p>
             </div>
 
@@ -593,6 +621,15 @@
                     <button class="btn secondary" id="avlReset">
                         Reset
                     </button>
+                </div>
+
+                <div class="operation-tools">
+                    <button class="btn secondary" id="avlSearch">Search value</button>
+                    <button class="btn secondary" id="avlDelete">Delete value</button>
+                    <button class="btn secondary" id="avlTraverse">In-order traversal</button>
+                </div>
+                <div class="operation-result" id="avlResult" aria-live="polite">
+                    <strong>Ready:</strong> Insert a value, then try searching, deleting, or traversing the tree.
                 </div>
 
                 <div class="canvas" id="avlCanvas">
@@ -678,11 +715,11 @@
 
                 <div class="card">
                     <div class="info-label">Live explanation</div>
-                    <h3>Insertion steps</h3>
+                    <h3>Operation history</h3>
 
                     <div class="steps" id="avlSteps">
                         <div class="step">
-                            No operations yet. Insert a value to begin.
+                            No operations yet. Insert, search, delete, or traverse to begin.
                         </div>
                     </div>
                 </div>
@@ -727,6 +764,15 @@
                     <button class="btn secondary" id="btReset">
                         Reset
                     </button>
+                </div>
+
+                <div class="operation-tools">
+                    <button class="btn secondary" id="btSearch">Search key</button>
+                    <button class="btn secondary" id="btDelete">Delete key</button>
+                    <button class="btn secondary" id="btTraverse">Sorted traversal</button>
+                </div>
+                <div class="operation-result" id="btResult" aria-live="polite">
+                    <strong>Ready:</strong> Insert a key, then try searching, deleting, or displaying all keys in sorted order.
                 </div>
 
                 <div class="canvas" id="btCanvas">
@@ -808,11 +854,11 @@
 
                 <div class="card">
                     <div class="info-label">Live explanation</div>
-                    <h3>Insertion steps</h3>
+                    <h3>Operation history</h3>
 
                     <div class="steps" id="btSteps">
                         <div class="step">
-                            No operations yet. Insert a value to begin.
+                            No operations yet. Insert, search, delete, or traverse to begin.
                         </div>
                     </div>
                 </div>
@@ -821,9 +867,10 @@
         </section>
 
         <p class="footer-note">
-            Learning note: This visualizer demonstrates insertion and the
-            core balancing rules. The B-Tree uses minimum degree t = 2
-            (maximum 3 keys per node). Duplicate values are not inserted.
+            Learning note: Both visualizers support insertion, search, deletion, and sorted traversal.
+            The AVL Tree uses rotations to preserve balance. The B-Tree uses minimum degree t = 2
+            (maximum 3 keys per node), with splitting, borrowing, and merging during updates.
+            Duplicate values are not inserted.
         </p>
 
     </main>
@@ -1095,6 +1142,128 @@
         }
 
 
+
+        /* AVL SEARCH, TRAVERSAL, AND DELETION */
+
+        function avlSearch(key) {
+            let current = avlRoot;
+            const path = [];
+
+            while (current) {
+                path.push(current.key);
+                if (key === current.key) {
+                    avlHighlight = new Set([key]);
+                    renderAVL();
+                    $('avlResult').innerHTML =
+                        `<strong>Found:</strong> ${key}. Search path: ${path.join(' → ')}.`;
+                    addStep('avlSteps', `Search successful: ${key} was found. Path: ${path.join(' → ')}.`, 'SEARCH');
+                    return true;
+                }
+                current = key < current.key ? current.left : current.right;
+            }
+
+            avlHighlight.clear();
+            renderAVL();
+            $('avlResult').innerHTML =
+                `<strong>Not found:</strong> ${key} is not in the AVL Tree. Checked path: ${path.length ? path.join(' → ') : 'empty tree'}.`;
+            addStep('avlSteps', `Search unsuccessful: ${key} is not in the tree.`, 'SEARCH');
+            return false;
+        }
+
+        function avlInOrder(node, result = []) {
+            if (!node) return result;
+            avlInOrder(node.left, result);
+            result.push(node.key);
+            avlInOrder(node.right, result);
+            return result;
+        }
+
+        function avlDeleteNode(node, key, events) {
+            if (!node) {
+                events.push(`${key} was not found. No node was removed.`);
+                return null;
+            }
+
+            if (key < node.key) {
+                node.left = avlDeleteNode(node.left, key, events);
+            } else if (key > node.key) {
+                node.right = avlDeleteNode(node.right, key, events);
+            } else {
+                events.push(`${key} was found and will be removed.`);
+
+                if (!node.left || !node.right) {
+                    const replacement = node.left || node.right;
+                    if (!replacement) {
+                        return null;
+                    }
+                    node = replacement;
+                } else {
+                    let successor = node.right;
+                    while (successor.left) successor = successor.left;
+                    events.push(`The node has two children. Its in-order successor ${successor.key} replaces it.`);
+                    node.key = successor.key;
+                    node.right = avlDeleteNode(node.right, successor.key, events);
+                }
+            }
+
+            if (!node) return null;
+
+            update(node);
+            const balance = bf(node);
+
+            if (balance > 1 && bf(node.left) >= 0) {
+                events.push(`Deletion caused an LL imbalance at ${node.key}; perform a right rotation.`);
+                return rotateRight(node, events);
+            }
+            if (balance > 1 && bf(node.left) < 0) {
+                events.push(`Deletion caused an LR imbalance at ${node.key}; rotate left at the left child, then right.`);
+                node.left = rotateLeft(node.left, events);
+                return rotateRight(node, events);
+            }
+            if (balance < -1 && bf(node.right) <= 0) {
+                events.push(`Deletion caused an RR imbalance at ${node.key}; perform a left rotation.`);
+                return rotateLeft(node, events);
+            }
+            if (balance < -1 && bf(node.right) > 0) {
+                events.push(`Deletion caused an RL imbalance at ${node.key}; rotate right at the right child, then left.`);
+                node.right = rotateRight(node.right, events);
+                return rotateLeft(node, events);
+            }
+
+            return node;
+        }
+
+        function avlDelete(key) {
+            if (!Number.isSafeInteger(key)) {
+                addStep('avlSteps', 'Please enter a whole number within the safe integer range.', 'INPUT');
+                return;
+            }
+
+            const existed = (() => {
+                let n = avlRoot;
+                while (n) {
+                    if (key === n.key) return true;
+                    n = key < n.key ? n.left : n.right;
+                }
+                return false;
+            })();
+
+            const events = [];
+            avlHighlight = new Set();
+            avlRoot = avlDeleteNode(avlRoot, key, events);
+
+            if (existed) {
+                avlHighlight.add(key);
+                events.push('Deletion complete. Heights and balance factors were updated, and rotations were applied if needed.');
+                $('avlResult').innerHTML = `<strong>Deleted:</strong> ${key} was removed.`;
+            } else {
+                $('avlResult').innerHTML = `<strong>Not found:</strong> ${key} is not in the AVL Tree.`;
+            }
+
+            events.forEach((e, i) => addStep('avlSteps', e, i === events.length - 1 ? 'RESULT' : 'DELETE / BALANCE'));
+            renderAVL();
+        }
+
         /* AVL Tree Layout */
 
         function layoutBinary(root) {
@@ -1258,9 +1427,10 @@
 
             $('avlSteps').innerHTML = `
                 <div class="step">
-                    No operations yet. Insert a value to begin.
+                    No operations yet. Insert, search, delete, or traverse to begin.
                 </div>
             `;
+            $('avlResult').innerHTML = '<strong>Reset:</strong> The AVL Tree is empty.';
 
             renderAVL();
         }
@@ -1468,6 +1638,163 @@
         }
 
 
+
+        /* B-TREE DELETION HELPERS (CLRS minimum-degree algorithm) */
+
+        function findKeyIndex(node, key) {
+            let idx = 0;
+            while (idx < node.keys.length && node.keys[idx] < key) idx++;
+            return idx;
+        }
+
+        function getPredecessor(node, idx) {
+            let current = node.children[idx];
+            while (!current.leaf) current = current.children[current.keys.length];
+            return current.keys[current.keys.length - 1];
+        }
+
+        function getSuccessor(node, idx) {
+            let current = node.children[idx + 1];
+            while (!current.leaf) current = current.children[0];
+            return current.keys[0];
+        }
+
+        function mergeChildren(node, idx, events) {
+            const child = node.children[idx];
+            const sibling = node.children[idx + 1];
+            const middle = node.keys[idx];
+
+            child.keys.push(middle, ...sibling.keys);
+            if (!child.leaf) child.children.push(...sibling.children);
+
+            node.keys.splice(idx, 1);
+            node.children.splice(idx + 1, 1);
+            events.push(`Merge: separator key ${middle} and the right sibling were combined with the left child.`);
+            btHighlight.add(middle);
+            return child;
+        }
+
+        function borrowFromPrevious(node, idx, events) {
+            const child = node.children[idx];
+            const sibling = node.children[idx - 1];
+
+            child.keys.unshift(node.keys[idx - 1]);
+            if (!child.leaf) child.children.unshift(sibling.children.pop());
+
+            node.keys[idx - 1] = sibling.keys.pop();
+            events.push(`Borrow: a key was rotated from the left sibling through the parent into the target child.`);
+        }
+
+        function borrowFromNext(node, idx, events) {
+            const child = node.children[idx];
+            const sibling = node.children[idx + 1];
+
+            child.keys.push(node.keys[idx]);
+            if (!child.leaf) child.children.push(sibling.children.shift());
+
+            node.keys[idx] = sibling.keys.shift();
+            events.push(`Borrow: a key was rotated from the right sibling through the parent into the target child.`);
+        }
+
+        function fillChild(node, idx, events) {
+            if (idx > 0 && node.children[idx - 1].keys.length >= T) {
+                borrowFromPrevious(node, idx, events);
+            } else if (idx < node.keys.length && node.children[idx + 1].keys.length >= T) {
+                borrowFromNext(node, idx, events);
+            } else if (idx < node.keys.length) {
+                mergeChildren(node, idx, events);
+            } else {
+                mergeChildren(node, idx - 1, events);
+            }
+        }
+
+        function removeFromLeaf(node, idx, events) {
+            const removed = node.keys.splice(idx, 1)[0];
+            events.push(`Removed ${removed} directly from a leaf node.`);
+        }
+
+        function removeFromNonLeaf(node, idx, events) {
+            const key = node.keys[idx];
+
+            if (node.children[idx].keys.length >= T) {
+                const pred = getPredecessor(node, idx);
+                node.keys[idx] = pred;
+                events.push(`Internal key ${key} is replaced by its predecessor ${pred}.`);
+                removeKeyFromNode(node.children[idx], pred, events);
+            } else if (node.children[idx + 1].keys.length >= T) {
+                const succ = getSuccessor(node, idx);
+                node.keys[idx] = succ;
+                events.push(`Internal key ${key} is replaced by its successor ${succ}.`);
+                removeKeyFromNode(node.children[idx + 1], succ, events);
+            } else {
+                const merged = mergeChildren(node, idx, events);
+                removeKeyFromNode(merged, key, events);
+            }
+        }
+
+        function removeKeyFromNode(node, key, events) {
+            const idx = findKeyIndex(node, key);
+
+            if (idx < node.keys.length && node.keys[idx] === key) {
+                if (node.leaf) removeFromLeaf(node, idx, events);
+                else removeFromNonLeaf(node, idx, events);
+                return;
+            }
+
+            if (node.leaf) {
+                events.push(`${key} was not found in the selected leaf.`);
+                return;
+            }
+
+            const wasLastChild = idx === node.keys.length;
+            if (node.children[idx].keys.length < T) {
+                fillChild(node, idx, events);
+            }
+
+            if (wasLastChild && idx > node.keys.length) {
+                removeKeyFromNode(node.children[idx - 1], key, events);
+            } else {
+                removeKeyFromNode(node.children[idx], key, events);
+            }
+        }
+
+        function bDelete(key) {
+            if (!Number.isSafeInteger(key)) {
+                addStep('btSteps', 'Please enter a whole number within the safe integer range.', 'INPUT');
+                return;
+            }
+
+            if (!btRoot.keys.length || !bSearch(btRoot, key)) {
+                $('btResult').innerHTML = `<strong>Not found:</strong> ${key} is not in the B-Tree.`;
+                addStep('btSteps', `Delete unsuccessful: ${key} is not in the tree.`, 'DELETE');
+                return;
+            }
+
+            const events = [];
+            btHighlight = new Set([key]);
+            removeKeyFromNode(btRoot, key, events);
+
+            if (!btRoot.leaf && btRoot.keys.length === 0) {
+                btRoot = btRoot.children[0];
+                events.push('The old root became empty, so its only child is promoted to become the new root.');
+            }
+
+            events.push('Deletion complete. B-Tree key order and equal leaf depth are preserved.');
+            $('btResult').innerHTML = `<strong>Deleted:</strong> ${key} was removed.`;
+            events.forEach((e, i) => addStep('btSteps', e, i === events.length - 1 ? 'RESULT' : 'DELETE / REBALANCE'));
+            renderBT();
+        }
+
+        function bInOrder(node, result = []) {
+            let i = 0;
+            for (; i < node.keys.length; i++) {
+                if (!node.leaf) bInOrder(node.children[i], result);
+                result.push(node.keys[i]);
+            }
+            if (!node.leaf) bInOrder(node.children[i], result);
+            return result;
+        }
+
         /* B-Tree Count and Height */
 
         function countBKeys(n) {
@@ -1669,9 +1996,10 @@
 
             $('btSteps').innerHTML = `
                 <div class="step">
-                    No operations yet. Insert a value to begin.
+                    No operations yet. Insert, search, delete, or traverse to begin.
                 </div>
             `;
+            $('btResult').innerHTML = '<strong>Reset:</strong> The B-Tree is empty.';
 
             renderBT();
         }
@@ -1707,6 +2035,62 @@
             [10, 20, 5, 6, 12, 30, 7, 17, 3, 4, 2, 1].forEach(bInsert);
         };
 
+
+
+        function readOperationValue(inputId, resultId, stepsId) {
+            const raw = $(inputId).value.trim();
+            if (raw === '') {
+                $('' + resultId).innerHTML = '<strong>Input needed:</strong> Enter a whole number in the input field first.';
+                addStep(stepsId, 'Enter a number before running this operation.', 'INPUT');
+                return null;
+            }
+            const value = Number(raw);
+            if (!Number.isSafeInteger(value)) {
+                $('' + resultId).innerHTML = '<strong>Invalid input:</strong> Use a whole number within the safe integer range.';
+                addStep(stepsId, 'Invalid input. Use a safe whole number.', 'INPUT');
+                return null;
+            }
+            return value;
+        }
+
+        $('avlSearch').onclick = () => {
+            const value = readOperationValue('avlInput', 'avlResult', 'avlSteps');
+            if (value !== null) avlSearch(value);
+        };
+        $('avlDelete').onclick = () => {
+            const value = readOperationValue('avlInput', 'avlResult', 'avlSteps');
+            if (value !== null) avlDelete(value);
+        };
+        $('avlTraverse').onclick = () => {
+            const values = avlInOrder(avlRoot);
+            $('avlResult').innerHTML = `<strong>In-order traversal (ascending):</strong> ${values.length ? values.join(' → ') : 'The tree is empty.'}`;
+            addStep('avlSteps', `In-order traversal produced ${values.length} sorted value(s): ${values.join(', ') || 'none'}.`, 'TRAVERSAL');
+            avlHighlight.clear();
+            renderAVL();
+        };
+
+        $('btSearch').onclick = () => {
+            const value = readOperationValue('btInput', 'btResult', 'btSteps');
+            if (value === null) return;
+            const found = bSearch(btRoot, value);
+            $('btResult').innerHTML = found
+                ? `<strong>Found:</strong> ${value} exists in the B-Tree.`
+                : `<strong>Not found:</strong> ${value} is not in the B-Tree.`;
+            addStep('btSteps', found ? `Search successful: ${value} was found.` : `Search unsuccessful: ${value} was not found.`, 'SEARCH');
+            btHighlight = found ? new Set([value]) : new Set();
+            renderBT();
+        };
+        $('btDelete').onclick = () => {
+            const value = readOperationValue('btInput', 'btResult', 'btSteps');
+            if (value !== null) bDelete(value);
+        };
+        $('btTraverse').onclick = () => {
+            const values = btRoot.keys.length ? bInOrder(btRoot) : [];
+            $('btResult').innerHTML = `<strong>Sorted traversal:</strong> ${values.length ? values.join(' → ') : 'The tree is empty.'}`;
+            addStep('btSteps', `Sorted traversal produced ${values.length} key(s): ${values.join(', ') || 'none'}.`, 'TRAVERSAL');
+            btHighlight.clear();
+            renderBT();
+        };
 
         /* ============================
            INITIAL RENDER
